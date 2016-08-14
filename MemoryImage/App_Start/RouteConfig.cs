@@ -51,11 +51,12 @@ namespace MemoryImage
 
         public void ProcessRequest(HttpContext context)
         {
-            //using (Bitmap image = new Bitmap("c:\\" +RequestContext.RouteData.Values["ImageName"]))
-            //"http://icdncube.posta.com.tr/images/none/16x9.jpg?w=844&h=200"
+            //using (Bitmap image = new Bitmap("c:\\" +RequestContext.RouteData.Values["ImageName"]))    
+#region 1.Kısım       
             string filePath = string.Empty;
 
-            //Find RealImageName Clean Seo Title If Exist
+            //Gerçek resim ismi bulunur. Eğer başında Seo amaçtı girilen title var ise kaldırılır.
+            //Örnek: http://localhost:11590/images/cdn/seo-amacli-deneme-resmi-bear.jpg?w=600&h=400
             string fullFileName = RequestContext.RouteData.Values["ImageName"].ToString();
 
             int startPoint = fullFileName.LastIndexOf('-') + 1;
@@ -66,14 +67,14 @@ namespace MemoryImage
                 string RealFileName = fullFileName.Substring(startPoint, length);
 
                 string imagePath = fullFileName.Substring(0, fullFileName.LastIndexOf('/') + 1);
-
+#endregion
+#region 2.Kısım
                 if (File.Exists("c:\\" + imagePath + RealFileName))
                 {
                     filePath = "c:\\" + imagePath + RealFileName;
                 }
                 else
                 {
-                    //filePath = "c:\\hp_16x9/2016/08/10/16x9.jpg";
                     filePath = "c:\\default/default.jpg";
                 }
             }
@@ -88,26 +89,29 @@ namespace MemoryImage
                     filePath = "c:\\default/default.jpg";
                 }
             }
-
+#endregion
+#region 3.Kısım
             using (var image = new Bitmap(filePath))
             {
                 var fileInfo = new FileInfo(filePath);
                 context.Response.ContentType = string.Concat("image/", fileInfo.Extension.Replace(".", ""));
 
                 var urlParams = context.Request.Url.Query;
+                //1.Yol
                 int[] numbers = (from Match m in Regex.Matches(urlParams, @"\d+") select int.Parse(m.Value)).ToArray();
+                //2.Yol
                 /*int width = int.Parse(new string(param.SkipWhile(x => !char.IsDigit(x))
                              .TakeWhile(char.IsDigit).ToArray()));*/
-                if (numbers.Length> 1 && (numbers[0]>0 || numbers[1]>0))
+                if (numbers.Length > 1 && (numbers[0] > 0 || numbers[1] > 0))
                 {
                     int width = numbers[0];
-                    int height = numbers[1];                    
+                    int height = numbers[1];
                     ResizeImage(image, new Size(width, height)).Save(context.Response.OutputStream, image.RawFormat);
                 }
                 else if (numbers.Length == 1 && numbers[0] > 0)
                 {
-                    int width = urlParams.Contains("w=")?numbers[0]:0;
-                    int height = urlParams.Contains("h=")?numbers[0]:0;                    
+                    int width = urlParams.Contains("w=") ? numbers[0] : 0;
+                    int height = urlParams.Contains("h=") ? numbers[0] : 0;
                     ResizeImage(image, new Size(width, height)).Save(context.Response.OutputStream, image.RawFormat);
                 }
                 else
@@ -115,26 +119,27 @@ namespace MemoryImage
                     image.Save(context.Response.OutputStream, ImageFormat.Png);
                 }
             }
+#endregion
         }
 
         public Bitmap ResizeImage(Bitmap imgToResize, Size size)
         {
             try
             {
-                //Aspect Ratio Rate
-                double dblRatio = (double)imgToResize.Width / (double)imgToResize.Height;                
+                //Image'in Aspect Ratio Oranını Bul
+                double dblRatio = (double)imgToResize.Width / (double)imgToResize.Height;
 
-                //1-) Check for "0" size
-                size.Width=size.Width == 0 ? (int)(size.Height * dblRatio) : size.Width;
-                size.Height = size.Height == 0 ? (int)(size.Width/ dblRatio) : size.Height;
+                //1-)Gelen Width ve Height Değerlerinden "0" Olan Var ise, buna karşılık gelen değer, Image'in Aspect Ratio Oranına Göre Bulunur.
+                size.Width = size.Width == 0 ? (int)(size.Height * dblRatio) : size.Width;
+                size.Height = size.Height == 0 ? (int)(size.Width / dblRatio) : size.Height;
 
-                //2-) Match With Orginal Size of Image. If it is bigger then orginal then keep the size of image
+                //2-) Eğer olması istenen boyutlardan biri, image'in gerçek boyutundan büyük ise, image'in orjinal boyutuna göre işleme devam edilir.
                 size.Width = size.Width > imgToResize.Width ? imgToResize.Width : size.Width;
                 size.Height = size.Height > imgToResize.Height ? imgToResize.Height : size.Height;
 
-                //3-) Check for Keep Aspect Ratio and If not, keep the biggest size of Image.
+                //3-) Eğer belirtilen yeni boyutlar image'in yeni aspect ratio'suna uymuyor ise, büyük olan boyut sabit alınarak, diğeri aspect ratio buna göre bulunur.
                 double dblResizeRatio = (double)size.Width / (double)size.Height;
-                if(Math.Abs(dblResizeRatio- dblRatio)>0.01)
+                if (Math.Abs(dblResizeRatio - dblRatio) > 0.01)
                 {
                     //Find bigger Size and Resize the Other One with keeping aspect ratio.
                     if (size.Width > size.Height)
@@ -144,7 +149,7 @@ namespace MemoryImage
                     else
                     {
                         size.Width = (int)(size.Height * dblRatio);
-                    } 
+                    }
                 }
 
                 Bitmap b = new Bitmap(size.Width, size.Height);
